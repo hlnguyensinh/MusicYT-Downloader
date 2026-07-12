@@ -200,6 +200,11 @@
             color: #1976d2;
         }
 
+        .format-badge.mp3_128 {
+            background: purple;
+            color: white;
+        }
+
         .format-badge.mp3 {
             background: #f3e5f5;
             color: #7b1fa2;
@@ -231,10 +236,12 @@
             <label for="format">Format</label>
             <select id="format">
                 <option value="mp4">MP4 (Video)</option>
-                <option value="mp3">MP3 (Audio + Metadata + Cover)</option>
+                <option value="mp3_128">MP3 128kbps (Audio + Metadata + Cover)</option>
+				<option value="mp3">MP3 320kbps (Audio + Metadata + Cover)</option>
             </select>
             <div class="format-info">
                 <span class="format-badge mp4">Best Quality Video</span>
+                <span class="format-badge mp3_128">128kbps Audio</span>
                 <span class="format-badge mp3">320kbps Audio</span>
                 <span class="format-badge metadata">Auto Metadata</span>
             </div>
