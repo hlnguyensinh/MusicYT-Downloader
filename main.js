@@ -9,7 +9,7 @@ const logFile = "musicyt-debug.log"; //path.join(app.getPath('downloads'), 'musi
 const log = (msg) => {
     try {
         fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`);
-    } catch (e) { }
+    } catch (e) {}
 };
 log(`-------------------------------------------`);
 log(`App initiating. Packaged: ${app.isPackaged}`);
@@ -154,7 +154,7 @@ async function downloadThumbnail(url, outputPath) {
                 });
             })
             .on("error", (err) => {
-                fs.unlink(outputPath, () => { });
+                fs.unlink(outputPath, () => {});
                 reject(err);
             });
     });
@@ -381,9 +381,9 @@ async function handleSingleDownload(event, url, format) {
             // log("JSON:");
             // log(JSON.stringify(info));
             // log("JSON info_language:");
-            // log(JSON.stringify(info.formats[5]?.language ?? "en"));
+            // //log(JSON.stringify(info.formats[5]?.language ?? "en"));
             // log(info_language);
-            // log(new Date().getFullYear());
+            //log(new Date().getFullYear());
             // log(info.upload_date);
             const rawDate = info.upload_date ? info.upload_date.toString() : "";
 
@@ -405,7 +405,7 @@ async function handleSingleDownload(event, url, format) {
             const tags = {
                 title: info.title,
                 artist: artist,
-                album: info.album,
+                album: info.album || "YouTube Download",
                 year: info_year,
                 comment: {
                     language: info_language, //"eng",
@@ -602,7 +602,7 @@ async function handlePlaylistDownload(event, url, format) {
                             if (file && fs.existsSync(file)) {
                                 try {
                                     fs.unlinkSync(file);
-                                } catch (e) { }
+                                } catch (e) {}
                             }
                         });
                     } catch (err) {
