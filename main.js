@@ -9,7 +9,7 @@ const logFile = "musicyt-debug.log"; //path.join(app.getPath('downloads'), 'musi
 const log = (msg) => {
     try {
         fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`);
-    } catch (e) { }
+    } catch (e) {}
 };
 log(`-------------------------------------------`);
 log(`App initiating. Packaged: ${app.isPackaged}`);
@@ -154,7 +154,7 @@ async function downloadThumbnail(url, outputPath) {
                 });
             })
             .on("error", (err) => {
-                fs.unlink(outputPath, () => { });
+                fs.unlink(outputPath, () => {});
                 reject(err);
             });
     });
@@ -248,6 +248,36 @@ ipcMain.on("start-download", async (event, { url, format, isPlaylist }) => {
     }
 });
 
+function extract_year(upload_date) {
+    const rawDate = upload_date ? upload_date.toString() : "";
+
+    // Kiểm tra nếu dữ liệu có đủ độ dài của định dạng YYYYMMDD (8 ký tự)
+    if (rawDate.length === 8) {
+        const year = parseInt(rawDate.substring(0, 4), 10);
+        const month = parseInt(rawDate.substring(4, 6), 10) - 1; // Tháng trong JS chạy từ 0 đến 11
+        const day = parseInt(rawDate.substring(6, 8), 10);
+
+        dateObj = new Date(year, month, day);
+    } else {
+        // Fallback nếu không có dữ liệu hoặc dữ liệu sai định dạng
+        dateObj = new Date();
+    }
+
+    return dateObj.getFullYear().toString();
+}
+
+function extract_title(title) {
+    return title
+        .normalize("NFD") // Tách các dấu tiếng Việt ra khỏi chữ gốc
+        .replace(/[\u0300-\u036f]/g, "") // Xóa các dấu tiếng Việt vừa tách
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "D") // Sửa riêng chữ đ và Đ
+        .replace(/[^\w\s-]/g, "") // Lúc này dùng \w an toàn vì đã mất dấu
+        .replace(/\s+/g, "-") // Thay thế khoảng trắng thành dấu gạch ngang (-)
+        .replace(/-+/g, "-") // Thu gọn nhiều dấu gạch ngang liên tiếp thành 1 dấu
+        .trim();
+}
+
 async function handleSingleDownload(event, url, format) {
     let tempVideoPath = null;
     let tempAudioPath = null;
@@ -278,20 +308,12 @@ async function handleSingleDownload(event, url, format) {
         });
 
         //const title = info.title.trim();//info.title.replace(/[^\w\s-]/gi, '').trim();
-        const savefname = info.title
-            .normalize("NFD") // Tách các dấu tiếng Việt ra khỏi chữ gốc
-            .replace(/[\u0300-\u036f]/g, "") // Xóa các dấu tiếng Việt vừa tách
-            .replace(/đ/g, "d")
-            .replace(/Đ/g, "D") // Sửa riêng chữ đ và Đ
-            .replace(/[^\w\s-]/g, "") // Lúc này dùng \w an toàn vì đã mất dấu
-            .replace(/\s+/g, "-") // Thay thế khoảng trắng thành dấu gạch ngang (-)
-            .replace(/-+/g, "-") // Thu gọn nhiều dấu gạch ngang liên tiếp thành 1 dấu
-            .trim();
+        const savefname = extract_title(info.title);
         const artist = info.uploader || "Unknown Artist";
         const thumbnail = info.thumbnail;
 
         const { filePath } = await dialog.showSaveDialog(mainWindow, {
-            defaultPath: `${savefname}.${format}`,
+            defaultPath: `${savefname}.${format}`, //`${title}.${format}`,
             filters: [{ name: format.toUpperCase(), extensions: [format] }],
         });
 
@@ -331,7 +353,7 @@ async function handleSingleDownload(event, url, format) {
 
             event.reply("download-status", "Processing video...");
             event.reply("download-complete", filePath);
-        } else if (format === "mp3" || format === "mp3_128") {
+        } else if (format === "mp3") {
             event.reply("download-status", "Downloading audio...");
 
             await ytdlp(url, {
@@ -380,28 +402,13 @@ async function handleSingleDownload(event, url, format) {
             event.reply("download-status", "Adding metadata and cover art...");
             // log("JSON:");
             // log(JSON.stringify(info));
-            const rawDate = info.upload_date ? info.upload_date.toString() : "";
 
-            // Kiểm tra nếu dữ liệu có đủ độ dài của định dạng YYYYMMDD (8 ký tự)
-            if (rawDate.length === 8) {
-                const year = parseInt(rawDate.substring(0, 4), 10);
-                const month = parseInt(rawDate.substring(4, 6), 10) - 1; // Tháng trong JS chạy từ 0 đến 11
-                const day = parseInt(rawDate.substring(6, 8), 10);
-
-                dateObj = new Date(year, month, day);
-            } else {
-                // Fallback nếu không có dữ liệu hoặc dữ liệu sai định dạng
-                dateObj = new Date();
-            }
-
-            const info_year = dateObj.getFullYear().toString();
-
-            const info_language = "eng";//info.formats[5]?.language ?? "eng";
+            const info_language = "eng"; //info.formats[5]?.language ?? "eng";
             const tags = {
                 title: info.title,
                 artist: artist,
                 album: info.album,
-                year: info_year,
+                year: extract_year(info.upload_date), //new Date(info.upload_date || Date.now()).getFullYear().toString(),
                 comment: {
                     language: info_language, //"eng",
                     text: `Downloaded from: ${url}`,
@@ -512,7 +519,21 @@ async function handlePlaylistDownload(event, url, format) {
                 noWarnings: true,
                 noCheckCertificate: true,
             });
-            const videoTitle = (video.title || `Video ${i + 1}`).replace(/[^\w\s-]/gi, "").trim();
+            //const videoTitle = (video.title || `Video ${i + 1}`).replace(/[^\w\s-]/gi, "").trim();
+            const videoTitle = extract_title(video.title || `Video ${i + 1}`);
+
+            let mp3type = null;
+
+            switch (format) {
+                case "mp3_128":
+                    format = "mp3";
+                    mp3type = "128k";
+                    break;
+                case "mp3":
+                    format = "mp3";
+                    mp3type = "320k";
+                    break;
+            }
 
             try {
                 event.reply("download-status", `Downloading ${i + 1}/${videos.length}: ${videoTitle}`);
@@ -558,7 +579,8 @@ async function handlePlaylistDownload(event, url, format) {
                         await new Promise((resolve, reject) => {
                             ffmpeg(tempAudioPath)
                                 .toFormat("mp3")
-                                .audioBitrate("320k")
+                                //.audioBitrate("320k")
+                                .audioBitrate(mp3type)
                                 .on("end", resolve)
                                 .on("error", reject)
                                 .save(outputPath);
@@ -579,9 +601,7 @@ async function handlePlaylistDownload(event, url, format) {
                             title: video.title,
                             artist: video.uploader || "Unknown Artist",
                             album: playlistTitle,
-                            year: video.upload_date
-                                ? video.upload_date.substring(0, 4)
-                                : new Date().getFullYear().toString(),
+                            year: extract_year(video.upload_date), //video.upload_date ? video.upload_date.substring(0, 4) : new Date().getFullYear().toString(),
                         };
 
                         if (fs.existsSync(thumbnailPath)) {
@@ -599,7 +619,7 @@ async function handlePlaylistDownload(event, url, format) {
                             if (file && fs.existsSync(file)) {
                                 try {
                                     fs.unlinkSync(file);
-                                } catch (e) { }
+                                } catch (e) {}
                             }
                         });
                     } catch (err) {
